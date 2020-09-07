@@ -1,15 +1,18 @@
 #!/bin/bash
 
+
+####################################### INIT OF FUNCTIONS
+
 banner(){
 clear
-echo " 						CentOS Only."
+echo " 						Redhat / CentOS Only."
 echo ""
 echo "    aMMMMP dMP     dMMMMb  dMP         .aMMMb  dMP dMP dMMMMMMP .aMMMb  dMMMMMMMMb  .aMMMb dMMMMMMP dMMMMMP" 
 echo "  dMP\"    dMP     dMP.dMP amr         dMP\"dMP dMP dMP    dMP   dMP\"dMP dMP\"dMP\"dMP dMP\"dMP   dMP   dMP"      
 echo " dMP MMP\"dMP     dMMMMP\" dMP         dMMMMMP dMP dMP    dMP   dMP dMP dMP dMP dMP dMMMMMP   dMP   dMMMP    " 
 echo " dMP.dMP dMP     dMP     dMP         dMP dMP dMP.aMP    dMP   dMP.aMP dMP dMP dMP dMP dMP   dMP   dMP        "
 echo " VMMMP\" dMMMMMP dMP     dMP         dMP dMP  VMMMP\"    dMP    VMMMP\" dMP dMP dMP dMP dMP   dMP   dMMMMMP   "  
-echo "												Dev: Igor Soares"                                                                                                      
+echo "												github.com/igorsoares"                                                                                                      
 }
 
 clear_and_banner(){
@@ -29,22 +32,52 @@ download_packets(){
 	clear_and_banner
 	echo "[x] Starting to download packets.."
 	sleep 1
-	yum install epel-release yum-utils -y
-	yum install -y httpd mariadb mariadb-server mariadb-devel wget 
+	yum update -y
+	yum install epel-release yum-utils wget -y
+	## Create repository for MariaDB updated.
+  	echo "[mariadb]
+name = MariaDB
+baseurl = http://yum.mariadb.org/10.1/centos7-amd64
+gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
+gpgcheck=1" > /etc/yum.repos.d/MariaDB10.repo
+	yum install -y httpd MariaDB-server MariaDB-client 
+	echo "MARIADB INSTALLED"
+	sleep 7
+
 
 	## DOWNLOAD PHP 7.2
 	yum install -y http://rpms.remirepo.net/enterprise/remi-release-7.rpm
 	echo "[x] Repository has been installed."
-	sleep 1
+	sleep 3
 	yum-config-manager --enable remi-php73
 	echo "[x] Downloading and installing PHP.."
 	sleep 3
 	clear
-	sudo yum install php php-common php-opcache php-mcrypt php-cli php-gd php-curl php-mysqlnd
+	sudo yum install php php-ldap php-common php-opcache php-mcrypt php-cli php-gd php-curl php-mysqlnd php-mbstring php-intl php-sodium php-xmlrpc php73-php-pecl-apcu-bc php-pear-CAS php-pecl-apcu 
 
 }
 
+config_services(){
+
+
+	echo "[!]Activating links and starting it.."
+	systemctl enable httpd > /dev/null
+	echo "[x] httpd enabled."
+	systemctl enable mariadb > /dev/null
+	echo "[x] mariadb enabled."
+	systemctl start httpd && systemctl start mariadb
+	echo "[+] httpd service daemon started."
+	sleep 1
+	echo "[+] mariadb service daemon started."
+	sleep 2
+
+}
+
+#################################### END OF FUNCTIONS
+
 clear_and_banner
+echo "[!] Before you start , check if you date on your system's correct."
+sleep 2
 echo "[x] Verifying pre-requisits..."
 sleep 2
 
@@ -61,28 +94,58 @@ if test -f /etc/redhat-release ; then
 fi
 
 ### VERIFY SELinux
-if [ $(sestatus | cut -d':' -f2) != "disabled" ]; then
-	echo "[x] Disabling SELinux..."
+SELINUXSTATE=$(grep -w "SELINUX" /etc/selinux/config | grep -v "#" | cut -d'=' -f 2)
+COUNTER=0 # IF IS ONE, THEN WAS DISABLED SUCCESSFULLY. 
+if [ "$SELINUXSTATE" != "disabled" ]; then
+	echo "[x] SELinux is Enabled. Disabling..."
 	sleep 2
-	setenforce 0 # Put in permissive mode.
-	echo "[x] SELinux disabled.. Please restart your system. Do you want to restart now ? y/n "
-	read CHOICE
-	if [ "$CHOICE" == "y" || "$CHOICE" == "Y" ]; then
-		poweroff --reboot	
+	
+	## DISABLE ON  /etc/selinux/config with backup
+	if [ "$SELINUXSTATE" == "permissive" ]; then
+		sed -i.bk 's/permissive/disabled/g' /etc/selinux/config
+		OUTPUT=$(grep "disabled" /etc/selinux/config | grep -v "#" | wc -l)
+		if [ "$OUTPUT" == "1" ]; then
+			COUNTER="1"
+		fi
+	else
+		# enforcing
+		sed -i.bk 's/enforcing/disabled/g' /etc/selinux/config
+		
+		OUTPUT=$(grep "disabled" /etc/selinux/config | grep -v "#" | wc -l)
+		if [ "$OUTPUT" == "1" ]; then
+			COUNTER="1"
+		fi
 	fi 
+
+	if [ "$OUTPUT" == "1" ]; then
+	
+		echo "[x] Please restart your system. Do you want to restart now ? y/n "
+		read CHOICE
+		if [ "$CHOICE" == "y" ]; then
+			poweroff --reboot	
+		fi 
+	else
+		sleep 2
+		echo "[!] An error has ocurred. Exiting."
+		exit 1
+	fi 
+
 else
 	echo "[x] SELinux already disabled."
+	sleep 2
+	clear_and_banner
 fi
 
 
 ### DOWNLOAD PACKETS
-#download_packets
+download_packets
 
 ### DOWNLOAD GLPI
 sleep 2
 clear_and_banner
 if [ -d "/var/www/html/glpi" ]; then
 	echo "[x] GLPI Already downloaded."
+	sleep 2
 else
 
 	if [ -f "glpi-9.5.1.tgz" ]; then
@@ -107,21 +170,16 @@ fi
 ### Activating links of services and starting it..
 sleep 1
 clear_and_banner
-echo "[!]Activating links and starting it.."
-systemctl enable httpd > /dev/null
-echo "[x] httpd enabled."
-systemctl enable mariadb > /dev/null
-echo "[x] mariadb enabled."
-systemctl start httpd && systemctl start mariadb
-echo "[+] httpd service daemon started."
-sleep 1
-echo "[+] mariadb service daemon started."
-sleep 2
+
+config_services
+
+
 ### MARIADB FUNCTION
 clear_and_banner
 echo "[x] Installing and configuring MARIADB..."
 sleep 2
 mysql_secure_installation
+clear_and_banner
 echo "You've been configured the database."
 sleep 1
 echo "Please insert the root password of MariaDB:"
