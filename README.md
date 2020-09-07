@@ -21,7 +21,9 @@ Automation script to installation of GLPI.
 
 `` git clone https://github.com/igorsoares/GLPI-Automate && chmod +x GLPI-Automate/glpi-automate.sh && sudo ./GLPI-Automate/glpi-automate.sh ``
 
-* PS : **RUN AS SUPER USER**
+![final](https://user-images.githubusercontent.com/64047018/92388310-763f5980-f0ed-11ea-9176-dd3a6b07fdc6.png)
+
+> PS: Run as root.
 
 ## First-step installation GLPI
 
@@ -42,8 +44,6 @@ Automation script to installation of GLPI.
 ![4](https://user-images.githubusercontent.com/64047018/92387478-fcf33700-f0eb-11ea-8950-b271ade26c0a.png)
 
 5. Fill all components (ServerIP, username and password) and click "Continue".
-
-> Username: glpi  Passwowrd: glpi
 
 ![5](https://user-images.githubusercontent.com/64047018/92387492-02508180-f0ec-11ea-82ae-34251e259e14.png)
 
